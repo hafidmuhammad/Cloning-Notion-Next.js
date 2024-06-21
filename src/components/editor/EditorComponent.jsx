@@ -1,160 +1,99 @@
-import { useEffect, useRef } from "react";
-import PropTypes from 'prop-types';
-import EditorJS from "@editorjs/editorjs";
-import Header from '@editorjs/header';
-import Underline from "@editorjs/underline";
-import Marker from "@editorjs/marker";
-import List from '@editorjs/list';
-import Table from '@editorjs/table';
-import LinkTool from '@editorjs/link';
-import Warning from '@editorjs/warning';
-import Delimiter from '@editorjs/delimiter';
-import Checklist from '@editorjs/checklist';
-import InlineCode from '@editorjs/inline-code';
-import Quote from '@editorjs/quote';
-import Raw from '@editorjs/raw';
-import CodeBlock from '@editorjs/code';
-import Embed from '@editorjs/embed';
-import TextVariantTune from '@editorjs/text-variant-tune';
-import ImageTool from '@editorjs/image';
-import SimpleImage from '@editorjs/simple-image';
-
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from "@/services/firebase";
+import React, { useEffect, useRef, useState } from 'react';
+import { Box, useColorMode } from '@chakra-ui/react';
+import { useStoreHook } from '../hooks/useStore';
+import tools from './tools';
 
 const DEFAULT_INITIAL_DATA = {
-    "time": new Date().getTime(),
-    "blocks": [
+    time: new Date().getTime(),
+    blocks: [
         {
-            "type": "header",
-            "placeholder": "This is my awesome editor!",
-            "data": {
-                "level": 4
-            }
+            type: 'header',
+            data: {
+                text: 'This is my awesome editor!',
+                level: 3,
+            },
         },
-    ]
+    ],
 };
 
-const EditorComponent = ({ projectId, uid, initialData, onEdit }) => {
+const EditorComponent = ({ projectId, initialData }) => {
     const ejInstance = useRef(null);
-    const editorContainerRef = useRef(null);
+    const editorRef = useRef(null);
+    const { user, saveEditorData, setProjectId } = useStoreHook((state) => ({
+        user: state.user,
+        saveEditorData: state.saveEditorData,
+        setProjectId: state.setProjectId,
+    }));
 
-    const initEditor = () => {
-        if (editorContainerRef.current && !ejInstance.current) {
-            const editor = new EditorJS({
-                holder: editorContainerRef.current,
-                onReady: () => {
-                    ejInstance.current = editor;
-                },
-                autofocus: true,
-                data: initialData || DEFAULT_INITIAL_DATA,
-                onChange: async () => {
-                    if (onEdit) onEdit();
-                    const content = await editor.saver.save();
+    const [EditorJS, setEditorJS] = useState(null);
+    const [newProjectId, setNewProjectId] = useState(null); // State untuk menyimpan newProjectId secara lokal
 
-                    if (uid && projectId) {
-                        try {
-                            const docRef = doc(db, "editorData", projectId);
-                            await setDoc(docRef, {
-                                content,
-                                uid,
-                                projectId,
-                                timestamp: new Date()
-                            }, { merge: true });
-                        } catch (e) {
-                            console.error("Error setting document: ", e);
-                        }
-                    } else {
-                        console.log("User is not logged in or projectId is missing");
-                    }
-                },
-                tools: {
-                    header: {
-                        class: Header,
-                        inlineToolbar: true,
-                        shortcut: 'CMD+SHIFT+H',
-                        config: {
-                            levels: [1, 2, 3, 4, 5],
-                            defaultLevel: 2,
-                        }
-                    },
-                    underline: {
-                        class: Underline,
-                    },
-                    warning: {
-                        class: Warning,
-                        inlineToolbar: true,
-                        shortcut: 'CMD+SHIFT+W',
-                        config: {
-                            titlePlaceholder: 'Title',
-                            messagePlaceholder: 'Message',
-                        },
-                    },
-                    marker: {
-                        class: Marker,
-                    },
-                    list: List,
-                    checklist: {
-                        class: Checklist,
-                        inlineToolbar: true,
-                    },
-                    table: Table,
-                    link: LinkTool,
-                    delimiter: Delimiter,
-                    checklist: Checklist,
-                    inlineCode: InlineCode,
-                    quote: Quote,
-                    raw: Raw,
-                    attaches: {
-                        class: AttachesTool,
-                    },
-                    code: CodeTool,
-                    embed: {
-                        class: Embed,
-                        config: {
-                            services: {
-                                youtube: true,
-                                coub: true,
-                                vimeo: true,
-                                codepen: true,
-                                instagram: true,
-                                facebook: true,
-                                twitter: true,
-                                linkedin: true,
-                                github: true,
-                                reddit: true,
-                                tiktok: true,
-                                soundcloud: true,
-                            }
-                        }
-                    },
-                    textVariantTune: TextVariantTune,
-                    image: ImageTool,
-                    simpleImage: SimpleImage,
-                },
-            });
-        }
-    };
+    const { colorMode } = useColorMode();
 
     useEffect(() => {
-        initEditor();
+        const loadEditorJS = async () => {
+            const { default: EditorJSClass } = await import('@editorjs/editorjs');
+            setEditorJS(() => EditorJSClass);
+        };
+        loadEditorJS();
+    }, []);
+
+    useEffect(() => {
+        if (!EditorJS || !editorRef.current || !user) {
+            console.error('EditorJS, editor container, or user is not ready.');
+            return;
+        }
+
+        const editorInstance = new EditorJS({
+            holder: editorRef.current,
+            onReady: () => {
+                console.log('Editor.js is ready to work!');
+            },
+            autofocus: true,
+            data: initialData || DEFAULT_INITIAL_DATA,
+            onChange: async () => {
+                try {
+                    const content = await ejInstance.current.save();
+                    console.log('Saving content:', content);
+                    if (!projectId && !newProjectId) {
+                        // Generate project ID locally if not available
+                        const generatedProjectId = `project_${Math.random().toString(36).substr(2, 9)}`;
+                        setNewProjectId(generatedProjectId);
+                        setProjectId(generatedProjectId); // Set project ID di Zustand
+                    }
+                    await saveEditorData(projectId || newProjectId, content, user.uid);
+                } catch (saveError) {
+                    console.error('Error during saveEditorData:', saveError);
+                }
+            },
+            tools,
+        });
+
+        ejInstance.current = editorInstance;
 
         return () => {
-            if (ejInstance.current) {
-                ejInstance.current.destroy();
-                ejInstance.current = null;
+            if (editorInstance.destroy) {
+                editorInstance.destroy();
             }
+            ejInstance.current = null;
         };
-    }, [uid, projectId]);
+    }, [EditorJS, user, saveEditorData, projectId, initialData, setProjectId, newProjectId]);
 
-    return <div id="editorjs" ref={editorContainerRef}></div>;
-}
+    if (!EditorJS) {
+        return <div>Loading Editor...</div>;
+    }
 
-EditorComponent.propTypes = {
-    projectId: PropTypes.string.isRequired,
-    uid: PropTypes.string.isRequired,
-    initialData: PropTypes.object,
-    onEdit: PropTypes.func,
+    return (
+        <Box
+            id="editorjs"
+            ref={editorRef}
+            bg={colorMode === 'dark' ? 'brand.100' : 'brand.900'}
+            color={colorMode === 'dark' ? 'white' : 'black'}
+            p={4}
+            borderRadius="md"
+            boxShadow={colorMode === 'dark' ? '0 4px 12px rgba(255, 255, 255, 0.1)' : '0 4px 12px rgba(0, 0, 0, 0.1)'}
+        />
+    );
 };
 
 export default EditorComponent;

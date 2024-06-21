@@ -1,11 +1,13 @@
+// components/sidebar/SidebarComponent.jsx
 import { useState } from "react";
-import { Box, Flex, IconButton, Tooltip } from "@chakra-ui/react";
+import { Box, Flex, IconButton, useColorMode, useColorModeValue } from "@chakra-ui/react";
 import PropTypes from 'prop-types';
-import { BsTable, BsTablet } from "react-icons/bs";
+import { FiMenu, FiSearch, FiHome, FiInbox, FiSettings, FiCalendar } from "react-icons/fi";
+import { BsTablet } from "react-icons/bs";
 import { TbTemplate } from "react-icons/tb";
-import { BiTrash } from "react-icons/bi";
+import { BiMoon, BiSun, BiTrash } from "react-icons/bi";
 import { QuestionOutlineIcon } from "@chakra-ui/icons";
-import SidebarItem from "./SideBarItem";
+import SidebarItem from "../button/sidebaritem";
 import SidebarHeader from "./SidebarHeader";
 import ProjectList from "./ProjectList";
 import { useRouter } from "next/router";
@@ -13,18 +15,15 @@ import SearchModal from "../modal/SearchModal";
 import CalenderModal from "../modal/calendermodal";
 import CreateTeamspaceModal from "../modal/createteamspace";
 import TrashModal from "../modal/trashmodal";
-
-import { FiCalendar, FiChevronsRight, FiHome, FiInbox, FiMenu, FiSearch, FiSettings } from "react-icons/fi";
 import InboxDrawer from "../drawel/inboxdrawer";
 
 const SidebarComponent = ({ children }) => {
+    const { toggleColorMode } = useColorMode();
     const [sidebarVisible, setSidebarVisible] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const router = useRouter();
-
-    const [isHovered, setIsHovered] = useState(false);
 
     const navigate = (path) => {
         router.push(path);
@@ -52,111 +51,100 @@ const SidebarComponent = ({ children }) => {
     };
 
     return (
-        <Box minH="100vh" bg="#F7F7F5">
+        <Box minH="100vh" bg={useColorModeValue("#F7F7F5", "gray.800")}>
             <Box
                 borderRight="1px"
-                borderColor={'gray.200'}
-                w={60}
+                borderColor={useColorModeValue('gray.200', 'gray.700')}
+                w={sidebarVisible ? 60 : 0}
                 pos="fixed"
                 h="full"
-                display={sidebarVisible ? "block" : "none"}
+                display="flex"
+                flexDirection="column"
+                bg={useColorModeValue("#F7F7F5", "gray.800")}
+                boxShadow="md"
                 transition="width 0.3s ease"
-                overflowY="auto"
+                overflowX="hidden"
             >
                 <SidebarHeader handleSidebarToggle={handleSidebarToggle} />
-                <Box p={4}>
-                    <Tooltip label="Search" aria-label="Search tooltip" placement="right">
-                        <SidebarItem
-                            icon={<FiSearch />}
-                            text="Search"
-                            onClick={() => handleModalOpen('Search')}
-                        />
-                    </Tooltip>
-                    <Tooltip label="Home" aria-label="Home tooltip" placement="right">
-                        <SidebarItem
-                            icon={<FiHome />}
-                            text="Home"
-                            onClick={() => navigate('/homepage')}
-                        />
-                    </Tooltip>
-                    <Tooltip label="Inbox" aria-label="Inbox tooltip" placement="right">
-                        <SidebarItem
-                            onClick={handleDrawerOpen}
-                            text="Inbox"
-                            icon={<FiInbox />}
-                        />
-                    </Tooltip>
-                    <Tooltip label="Settings" aria-label="Settings tooltip" placement="right">
-                        <SidebarItem
-                            icon={<FiSettings />}
-                            text="Settings"
-                            onClick={() => handleModalOpen('Settings')}
-                        />
-                    </Tooltip>
+                <Box p={4} flex="1">
+                    <SidebarItem
+                        icon={<FiSearch />}
+                        text="Search"
+                        onClick={() => handleModalOpen('Search')}
+                    />
+                    <SidebarItem
+                        icon={<FiHome />}
+                        text="Home"
+                        onClick={() => navigate('/homepage')}
+                    />
+                    <SidebarItem
+                        onClick={handleDrawerOpen}
+                        text="Inbox"
+                        icon={<FiInbox />}
+                    />
+                    <SidebarItem
+                        icon={<FiSettings />}
+                        text="Settings"
+                        onClick={() => handleModalOpen('Settings')}
+                    />
                 </Box>
-
-                <ProjectList />
-
-                <Box p={4}>
-                    <Tooltip label="Calendar" aria-label="Calendar tooltip" placement="right">
+                
+                <Box overflowY="auto">
+                    <ProjectList />
+                    <Box p={4}>
                         <SidebarItem
                             icon={<FiCalendar />}
                             text="Calendar"
-                            onClick={() => handleModalOpen('calender')}
+                            onClick={() => handleModalOpen('calendar')}
                         />
-                    </Tooltip>
-                    <Tooltip label="Create a Teamspace" aria-label="Create a Teamspace tooltip" placement="right">
                         <SidebarItem
                             icon={<BsTablet />}
                             text="Create a Teamspace"
                             onClick={() => handleModalOpen('teamspace')}
                         />
-                    </Tooltip>
-                    <Tooltip label="Templates" aria-label="Templates tooltip" placement="right">
                         <SidebarItem
                             onClick={() => navigate('/template')}
                             text="Templates"
                             icon={<TbTemplate />}
                         />
-                    </Tooltip>
-                    <Tooltip label="Trash" aria-label="Trash tooltip" placement="right">
                         <SidebarItem
                             icon={<BiTrash />}
                             text="Trash"
                             onClick={() => handleModalOpen('trash')}
                         />
-                    </Tooltip>
-                    <Tooltip label="Help & Support" aria-label="Help & Support tooltip" placement="right">
                         <SidebarItem
                             icon={<QuestionOutlineIcon />}
                             text="Help & Support"
                             onClick={() => handleModalOpen('help')}
                         />
-                    </Tooltip>
+                    </Box>
                 </Box>
             </Box>
 
             <Flex
                 ml={sidebarVisible ? 60 : 0}
                 p="4"
-                height="10"
+                height="100%"
                 alignItems="center"
-                color="white"
                 justifyContent="space-between"
                 transition="margin-left 0.3s ease"
+                bg={'transparent'}
             >
                 <IconButton
-                    display={sidebarVisible ? 'none' : 'flex'}
-                    mt={5}
+                    display={!sidebarVisible ? 'flex' : 'none'}
                     onClick={handleSidebarToggle}
                     variant="outline"
-                    icon={isHovered ? <FiChevronsRight /> : <FiMenu />}
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
-                    bg="#F7F7F5"
+                    icon={<FiMenu />}
+                    bg="transparent"
                     _hover={{
-                        bg: "#E2E2E0"
+                        bg: useColorModeValue("#E2E2E0", "gray.700"),
                     }}
+                />
+                <IconButton
+                    aria-label="Toggle dark mode"
+                    variant="ghost"
+                    onClick={toggleColorMode}
+                    icon={useColorModeValue(<BiSun />, <BiMoon />)}
                 />
             </Flex>
 
@@ -165,7 +153,7 @@ const SidebarComponent = ({ children }) => {
             </Box>
 
             <SearchModal isOpen={isModalOpen && modalTitle === 'Search'} onClose={handleModalClose} />
-            <CalenderModal isOpen={isModalOpen && modalTitle === 'calender'} onClose={handleModalClose} />
+            <CalenderModal isOpen={isModalOpen && modalTitle === 'calendar'} onClose={handleModalClose} />
             <CreateTeamspaceModal isOpen={isModalOpen && modalTitle === 'teamspace'} onClose={handleModalClose} />
             <TrashModal isOpen={isModalOpen && modalTitle === 'trash'} onClose={handleModalClose} />
             <InboxDrawer isOpen={isDrawerOpen} onClose={handleDrawerClose} />

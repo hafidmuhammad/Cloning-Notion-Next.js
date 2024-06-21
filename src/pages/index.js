@@ -1,8 +1,9 @@
 import React from 'react'
+import HomePage from './homepage'
 
 const index = () => {
   return (
-    <div>index</div>
+    <HomePage/>
   )
 }
 

@@ -13,10 +13,9 @@ import {
     useToast,
 } from "@chakra-ui/react";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
-import { db } from '@/services/firebase';
-
 import PropTypes from 'prop-types';
-import useStore from '../hooks/useStore';
+import { db } from '../../services/firebase';
+import useStore from '@components/hooks/useStore';
 
 
 const ModalInvite = ({ isOpen, onClose, selectedProjectId }) => {

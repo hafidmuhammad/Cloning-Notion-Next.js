@@ -1,17 +1,19 @@
+// components/projectlist.js
 import { useEffect, useState } from 'react';
-import { Box, Flex, Text, Menu, MenuButton, MenuList, MenuItem, useToast, useDisclosure, IconButton, Avatar } from "@chakra-ui/react";
-import { FiTrash2, FiEdit2, FiShare2, FiMoreVertical } from "react-icons/fi";
-import { AddIcon } from "@chakra-ui/icons";
-import SidebarItem from "./SideBarItem";
-
-import ModalInvite from '../Modal/ModalInvite';
+import { Box, Flex, Text, useToast, useDisclosure, Spinner, Center, useColorModeValue } from "@chakra-ui/react";
 import { useRouter } from 'next/router';
+import { motion } from 'framer-motion';
 import useStore from '../hooks/useStore';
+import ModalInvite from '../Modal/ModalInvite';
+import ProjectItem from '../button/projectitem';
+import { MdPublic, MdPublicOff } from 'react-icons/md';
+
+const MotionBox = motion(Box);
 
 const ProjectList = () => {
     const toast = useToast();
     const { onOpen: onOpenInvite, onClose: onCloseInvite, isOpen: isOpenInvite } = useDisclosure();
-    const { user, privateProjects, publicProjects, fetchProjects, deleteProject } = useStore(state => ({
+    const { user, privateProjects = [], publicProjects = [], fetchProjects, deleteProject } = useStore(state => ({
         user: state.user,
         privateProjects: state.privateProjects,
         publicProjects: state.publicProjects,
@@ -19,38 +21,66 @@ const ProjectList = () => {
         deleteProject: state.deleteProject,
     }));
     const [selectedProjectId, setSelectedProjectId] = useState(null);
-
+    const [isLoading, setIsLoading] = useState(false); 
     const router = useRouter();
-
-    const navigateToDetail = (projectId) => {
-        router.push(`/project/${projectId}`);
-    };
 
     useEffect(() => {
         if (user) {
-            fetchProjects(user.uid);
+            setIsLoading(true);
+            fetchProjects(user.uid)
+                .then(() => setIsLoading(false))
+                .catch(err => {
+                    console.error('Failed to fetch projects:', err);
+                    toast({
+                        title: "Failed to Load Projects",
+                        description: "There was an error loading your projects.",
+                        status: "error",
+                        duration: 5000,
+                        isClosable: true,
+                    });
+                    setIsLoading(false);
+                });
         }
-    }, [user, fetchProjects]);
+    }, [user, fetchProjects, toast]);
+
+    const navigateToDetail = (projectId) => {
+        router.push(`/detailpage/${projectId}`);
+        toast({
+            title: "Entering Project",
+            description: "You are now entering the project detail page.",
+            status: "info",
+            duration: 3000,
+            isClosable: true,
+        });
+    };
 
     const handleDelete = async (projectId) => {
-        const success = await deleteProject(projectId);
-        if (success) {
+        try {
+            setIsLoading(true);
+            const projectRef = doc(db, "editorData", projectId);
+            // Move project data to trash
+            await updateDoc(projectRef, {
+                isDeleted: true, // assuming you have a field isDeleted in your project document
+            });
+            setIsLoading(false);
             fetchProjects(user.uid);
             toast({
-                title: "Proyek Dihapus",
-                description: "Proyek berhasil dihapus.",
+                title: "Project Moved to Trash",
+                description: "Project data has been moved to trash.",
                 status: "success",
                 duration: 5000,
                 isClosable: true,
             });
-        } else {
+        } catch (err) {
+            console.error('Failed to move project to trash:', err);
             toast({
-                title: "Gagal Menghapus Proyek",
-                description: "Terjadi kesalahan saat mencoba menghapus proyek.",
+                title: "Failed to Move Project to Trash",
+                description: "An error occurred while trying to move project data to trash.",
                 status: "error",
                 duration: 5000,
                 isClosable: true,
             });
+            setIsLoading(false);
         }
     };
 
@@ -59,95 +89,85 @@ const ProjectList = () => {
         onOpenInvite();
     };
 
+    const projectVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0 },
+    };
+
     return (
-        <Box>
-            <Box p={2} maxH={"180px"} overflow={"auto"} bg="#F7F7F5" borderRadius={"md"}>
-                <Text p={1} fontSize={"sm"}>Public Projects</Text>
-                {publicProjects && publicProjects.length === 0 ? (
-                    <SidebarItem
-                        icon={<AddIcon />}
-                        text="Add Page"
-                        onClick={() => navigate('/createnew')}
-                    />
-                ) : (
-                    publicProjects && publicProjects.map((project) => {
-                        let headerText = 'Untitled';
-                        if (project.content && project.content.blocks) {
-                            project.content.blocks.forEach((block) => {
-                                if (block.type === 'header' && block.data && block.data.text) {
-                                    headerText = block.data.text;
-                                }
-                            });
-                        }
-                        return (
-                            <Flex key={project.id} align={"center"} p={2} w={"full"} justifyContent={"space-between"} borderRadius={"md"} fontSize={"sm"} bg="#F7F7F5" _hover={{ bg: "gray.100", cursor: "pointer" }} mb={1} onClick={() => navigateToDetail(project.id)}>
-                                <Flex align={"center"}>
-                                    <Avatar size="sm" name={headerText} mr={2} />
-                                    <Box>{headerText}</Box>
-                                </Flex>
-                                <Menu>
-                                    <MenuButton as={IconButton} icon={<FiMoreVertical />} variant="ghost" />
-                                    <MenuList>
-                                        <MenuItem gap={2} onClick={() => handleDelete(project.id)}><FiTrash2 /> Remove</MenuItem>
-                                        <MenuItem gap={2} onClick={() => handleShareClick(project.id)}><FiShare2 /> Share</MenuItem>
-                                        <MenuItem gap={2} onClick={() => { /* Tambahkan logika edit di sini */ }}><FiEdit2 /> Edit</MenuItem>
-                                    </MenuList>
-                                </Menu>
+        <Box height="300px" px={4} py={2} overflowY="auto">
+            {isLoading ? (
+                <Center h="100%">
+                    <Spinner size="xl" />
+                </Center>
+            ) : (
+                <>
+                    <MotionBox
+                        h="50%"
+                        mb={2}
+                        gab = {2}
+                        bg={useColorModeValue("gray.200", "gray.700")} 
+                        borderRadius="md"
+                        initial="hidden"
+                        animate="visible"
+                        variants={projectVariants}
+                        transition={{ duration: 0.5 }}
+                    >
+                        <Flex gap={2} align="center" fontSize="sm" p={2}>
+                            <MdPublic />
+                            <Text>Public Projects</Text>
+                        </Flex>
+                        {publicProjects.length > 0 ? (
+                            publicProjects.map(project => (
+                                <motion.div key={project.id} initial="hidden" animate="visible" variants={projectVariants} transition={{ duration: 0.3 }}>
+                                    <ProjectItem
+                                        project={project}
+                                        onDelete={() => handleDelete(project.id)}
+                                        onShare={() => handleShareClick(project.id)}
+                                        onEdit={() => navigateToDetail(project.id)}
+                                    />
+                                </motion.div>
+                            ))
+                        ) : (
+                            <Box p={4} color="gray.500" fontSize="sm">No public projects available</Box>
+                        )}
+                    </MotionBox>
+                    <MotionBox
+                        h="50%"
+                        bg={useColorModeValue("gray.200", "gray.700")} // Light and dark mode background color
+                        borderRadius="md"
+                        initial="hidden"
+                        animate="visible"
+                        gab = {2}
+                        variants={projectVariants}
+                        transition={{ duration: 0.5 }}
+                    >
+                        <Flex gap={2} align="center" fontSize="sm" p={2}>
+                            <MdPublicOff />
+                            <Text>Private Projects</Text>
+                        </Flex>
+                        {privateProjects.length > 0 ? (
+                            privateProjects.map(project => (
+                                <motion.div key={project.id} initial="hidden" animate="visible" variants={projectVariants} transition={{ duration: 0.3 }}>
+                                    <ProjectItem
+                                        project={project}
+                                        onDelete={() => handleDelete(project.id)}
+                                        onShare={() => handleShareClick(project.id)}
+                                        onEdit={() => navigateToDetail(project.id)}
+                                    />
+                                </motion.div>
+                            ))
+                        ) : (
+                            <Flex align="center" p={4} w="full" justifyContent="center" bg="gray.200" cursor="pointer">
+                                Add Project
                             </Flex>
-                        );
-                    })
-                )}
-                <ModalInvite
-                    isOpen={isOpenInvite}
-                    onClose={onCloseInvite}
-                    selectedProjectId={selectedProjectId}
-                />
-            </Box>
-            <Box p={2} maxH={"180px"} overflow={"auto"} bg="#F7F7F5" borderRadius={"md"}>
-                <Text p={1} fontSize={"sm"}>Private Projects</Text>
-                {privateProjects && privateProjects.length === 0 ? (
-                    <SidebarItem
-                        icon={<AddIcon />}
-                        text="Add Page"
-                        onClick={() => navigate('/createnew')}
-                    />
-                ) : (
-                    privateProjects && privateProjects.map((project) => {
-                        let headerText = 'Untitled';
-                        if (project.content && project.content.blocks) {
-                            project.content.blocks.forEach((block) => {
-                                if (block.type === 'header' && block.data && block.data.text) {
-                                    headerText = block.data.text;
-                                }
-                            });
-                        }
-                        return (
-                            <Flex key={project.id} align={"center"} p={2} w={"full"} justifyContent={"space-between"} borderRadius={"md"} fontSize={"sm"} bg="#F7F7F5" _hover={{ bg: "gray.100", cursor: "pointer" }} mb={1} onClick={() => navigate(`/project/${project.id}`)}>
-                                <Flex align={"center"}>
-                                    <Avatar size="sm" name={headerText} mr={2} />
-                                    <Box>{headerText}</Box>
-                                </Flex>
-                                <Menu>
-                                    <MenuButton as={IconButton} icon={<FiMoreVertical />} variant="ghost" />
-                                    <MenuList>
-                                        <MenuItem gap={2} onClick={() => handleDelete(project.id)}><FiTrash2 /> Remove</MenuItem>
-                                        <MenuItem gap={2} onClick={() => handleShareClick(project.id)}><FiShare2 /> Share</MenuItem>
-                                        <MenuItem gap={2} onClick={() => { /* Tambahkan logika edit di sini */ }}><FiEdit2 /> Edit</MenuItem>
-                                    </MenuList>
-                                </Menu>
-                            </Flex>
-                        );
-                    })
-                )}
-                <ModalInvite
-                    isOpen={isOpenInvite}
-                    onClose={onCloseInvite}
-                    selectedProjectId={selectedProjectId}
-                />
-            </Box>
+                        )}
+                    </MotionBox>
+                    <ModalInvite isOpen={isOpenInvite} onClose={onCloseInvite} selectedProjectId={selectedProjectId} />
+                </>
+            )}
         </Box>
     );
 };
 
 export default ProjectList;
-
